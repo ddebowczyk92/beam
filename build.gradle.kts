@@ -242,6 +242,8 @@ tasks.register("javaPreCommit") {
   dependsOn(":runners:flink:1.15:job-server:build")
   dependsOn(":runners:flink:1.16:build")
   dependsOn(":runners:flink:1.16:job-server:build")
+  dependsOn(":runners:flink:1.17:build")
+  dependsOn(":runners:flink:1.17:job-server:build")
   dependsOn(":runners:google-cloud-dataflow-java:build")
   dependsOn(":runners:google-cloud-dataflow-java:examples-streaming:build")
   dependsOn(":runners:google-cloud-dataflow-java:examples:build")

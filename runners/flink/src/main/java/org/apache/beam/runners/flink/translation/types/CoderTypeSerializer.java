@@ -27,11 +27,10 @@ import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CoderException;
 import org.apache.beam.sdk.util.CoderUtils;
 import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Preconditions;
+import org.apache.flink.api.common.typeutils.SimpleTypeSerializerSnapshot;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
-import org.apache.flink.api.common.typeutils.TypeSerializerConfigSnapshot;
 import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
 import org.apache.flink.api.common.typeutils.TypeSerializerSnapshot;
-import org.apache.flink.core.io.VersionedIOReadableWritable;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -159,19 +158,14 @@ public class CoderTypeSerializer<T> extends TypeSerializer<T> {
   }
 
   /** A legacy snapshot which does not care about schema compatibility. */
-  public static class LegacySnapshot<T> extends TypeSerializerConfigSnapshot<T> {
+  public static class LegacySnapshot<T> extends SimpleTypeSerializerSnapshot<T> {
 
-    /** Needs to be public to work with {@link VersionedIOReadableWritable}. */
-    public LegacySnapshot() {}
-
-    public LegacySnapshot(CoderTypeSerializer<T> serializer) {
-      setPriorSerializer(serializer);
+    public LegacySnapshot() {
+      super(() -> null);
     }
 
-    @Override
-    public int getVersion() {
-      // We always return the same version
-      return 1;
+    public LegacySnapshot(CoderTypeSerializer<T> serializer) {
+      super(() -> serializer);
     }
 
     @Override
