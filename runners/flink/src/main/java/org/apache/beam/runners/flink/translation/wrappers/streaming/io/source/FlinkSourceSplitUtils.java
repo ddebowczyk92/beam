@@ -25,9 +25,13 @@ import org.apache.beam.sdk.io.FileBasedSource;
 import org.apache.beam.sdk.io.Source;
 import org.apache.beam.sdk.io.UnboundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Shared Beam source sizing and splitting helpers. */
 final class FlinkSourceSplitUtils {
+  private static final Logger LOG = LoggerFactory.getLogger(FlinkSourceSplitUtils.class);
+
   static final long MEBIBYTE = 1024L * 1024L;
 
   private FlinkSourceSplitUtils() {}
@@ -45,7 +49,40 @@ final class FlinkSourceSplitUtils {
       throws Exception {
     long desiredSizeBytes =
         getDesiredSizeBytes(boundedSource, pipelineOptions, numSplits, estimatedSizeBytes);
-    return toFlinkSplits(boundedSource.split(desiredSizeBytes, pipelineOptions));
+    List<? extends BoundedSource<T>> initialSplits =
+        boundedSource.split(desiredSizeBytes, pipelineOptions);
+    LOG.info(
+        "Initial splitting of bounded source {} produced {} splits; requested splits: {},"
+            + " estimated size: {} bytes, desired bundle size: {} bytes",
+        boundedSource.getClass().getName(),
+        initialSplits.size(),
+        numSplits,
+        estimatedSizeBytes,
+        desiredSizeBytes);
+    if (initialSplits.isEmpty() || (long) initialSplits.size() * 2 >= numSplits) {
+      return toFlinkSplits(initialSplits);
+    }
+
+    LOG.info(
+        "Resplitting {} child sources of {} because the initial split count is less than half"
+            + " the requested split count ({})",
+        initialSplits.size(),
+        boundedSource.getClass().getName(),
+        numSplits);
+    ArrayList<BoundedSource<T>> resplitSources = new ArrayList<>();
+    for (BoundedSource<T> source : initialSplits) {
+      long childDesiredSizeBytes =
+          Math.max(1L, getDesiredSizeBytes(source, pipelineOptions, numSplits, estimatedSizeBytes));
+      resplitSources.addAll(source.split(childDesiredSizeBytes, pipelineOptions));
+    }
+    LOG.info(
+        "Completed resplitting bounded source {}: initial splits: {}, final splits: {},"
+            + " requested splits: {}",
+        boundedSource.getClass().getName(),
+        initialSplits.size(),
+        resplitSources.size(),
+        numSplits);
+    return toFlinkSplits(resplitSources);
   }
 
   static <T> ArrayList<FlinkSourceSplit<T>> splitUnboundedSource(
